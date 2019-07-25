@@ -13,18 +13,14 @@ class Blockchain:
         self.chain = []
         self.create_block(proof = 1, previous_hash = '0')
 
-    def create_block(self, proof, previous_hash):
-        block = {'index': len(self.chain) + 1,
-                 'timestamp': str(datetime.datetime.now()),
-                 'proof': proof,
-                 'previous_hash': previous_hash}
+    def add_block(self, block): # MODIFIED LINE
         self.chain.append(block)
         return block
 
     # NEW METHOD ADDED
     def prepare_block(self, proof, previous_hash):
         block = {'index': len(self.chain) + 1,
-                 'timestamp': str(datetime.datetime.now()),
+                 'timestamp': str(datetime.datetime.now()), # MINTED DATETIME OR CREATION DATETIME?
                  'proof': proof,
                  'previous_hash': previous_hash}
         return block
@@ -38,12 +34,12 @@ class Blockchain:
         # Return last block in the chain
         return self.chain[-1]
 
-    def proof_of_work(self, previous_proof):
+    def proof_of_work(self): # MODIFIED LINE
         new_proof = 1
         check_proof = False
 
-        previous_hash = self.hash(self.chain[-1]) # ADDED LINE
-        new_block = self.prepare_block(new_proof,previous_hash) # ADDED LINE
+        previous_hash = self.hash(self.chain[-1]) # NEW LINE
+        new_block = self.prepare_block(new_proof,previous_hash) # NEW LINE
 
         while check_proof is False:
             hash_operation = self.hash(new_block) # MODIFIED LINE
@@ -51,9 +47,9 @@ class Blockchain:
                 check_proof = True
             else:
                 new_proof += 1
-                new_block = set_proof(new_block,new_proof) # ADDED LINE
+                new_block = set_proof(new_block,new_proof) # NEW LINE
         
-        return new_proof
+        return new_proof, new_block # MODIFIED LINE
 
     def hash(self, block):
         encoded_block = json.dumps(block, sort_keys=True).encode()
@@ -92,19 +88,20 @@ blockchain = Blockchain()
 # Mining new block
 @app.route('/mine_block', methods=['GET'])
 def mine_block():
-    previous_block = blockchain.get_previous_block()
-    previous_proof = previous_block['proof']
+    # previous_block = blockchain.get_previous_block() # OLD LINE
+    # previous_proof = previous_block['proof'] # OLD LINE
 
-    proof = blockchain.proof_of_work(previous_proof)
+    proof, new_block = blockchain.proof_of_work() # MODIFIED LINE
 
-    previous_hash = blockchain.hash(previous_block)
-    block = blockchain.create_block(proof,previous_hash)
+    # previous_hash = blockchain.hash(previous_block) # OLD LINE
+    mined_block = blockchain.add_block(new_block) # MODIFIED LINE
 
     response = {'message': 'Congratulations, you just mined a block!',
-                'index': block['index'],
-                'timestamp': block['timestamp'],
-                'proof': block['proof'],
-                'previous_hash': block['previous_hash']}
+                'index': mined_block['index'],
+                'timestamp': mined_block['timestamp'],
+                'proof': mined_block['proof'],
+                'previous_hash': mined_block['previous_hash'],
+                'hash': blockchain.hash(mined_block)} # NEW LINE
     
     return jsonify(response), 200
 
