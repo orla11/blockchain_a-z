@@ -11,9 +11,11 @@ class Blockchain:
     def __init__(self):
         # Blockchain initialization
         self.chain = []
-        self.create_block(proof = 1, previous_hash = '0')
 
-    def add_block(self, block): # MODIFIED LINE
+        _, genesis_block = self.proof_of_work() # NEW LINE
+        self.add_block(genesis_block, skip_return=True) # MODIFIED LINE
+
+    def add_block(self, block, skip_return=False): # MODIFIED LINE
         self.chain.append(block)
         return block
 
@@ -38,8 +40,12 @@ class Blockchain:
         new_proof = 1
         check_proof = False
 
-        previous_hash = self.hash(self.chain[-1]) # NEW LINE
-        new_block = self.prepare_block(new_proof,previous_hash) # NEW LINE
+        if len(self.chain) is 0: # genesis block # NEW LINE
+            previous_hash = '0' # NEW LINE
+            new_block = self.prepare_block(proof = 1, previous_hash = previous_hash) # NEW LINE
+        else: # usual block # NEW LINE
+            previous_hash = self.hash(self.chain[-1]) # NEW LINE
+            new_block = self.prepare_block(new_proof,previous_hash) # NEW LINE
 
         while check_proof is False:
             hash_operation = self.hash(new_block) # MODIFIED LINE
@@ -47,13 +53,22 @@ class Blockchain:
                 check_proof = True
             else:
                 new_proof += 1
-                new_block = set_proof(new_block,new_proof) # NEW LINE
+                new_block = self.set_proof(new_block,new_proof) # NEW LINE
         
         return new_proof, new_block # MODIFIED LINE
 
     def hash(self, block):
         encoded_block = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(encoded_block).hexdigest()
+
+    # NEW METHOD TO GET CHAIN WITH SINGLE BLOCK HASHES
+    def chain_with_block_hashes(self):
+        chain = blockchain.chain
+
+        for index, block in enumerate(chain):
+            block.update({'hash':self.hash(block)})
+
+        return chain
 
     def is_chain_valid(self, chain):
         previous_block = chain[0]
@@ -108,7 +123,7 @@ def mine_block():
 # Getting the full Blockchain
 @app.route('/get_chain', methods=['GET'])
 def get_chain():
-    response = {'chain': blockchain.chain,
+    response = {'chain': blockchain.chain_with_block_hashes(),
                 'depth': len(blockchain.chain)}
 
     return jsonify(response), 200
