@@ -22,7 +22,7 @@ class Blockchain:
     # NEW METHOD ADDED
     def prepare_block(self, proof, previous_hash):
         block = {'index': len(self.chain) + 1,
-                 'timestamp': str(datetime.datetime.now()), # MINTED DATETIME OR CREATION DATETIME?
+                 'timestamp': str(datetime.datetime.now()),
                  'proof': proof,
                  'previous_hash': previous_hash}
         return block
