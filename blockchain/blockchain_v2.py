@@ -17,7 +17,9 @@ class Blockchain:
 
     def add_block(self, block, skip_return=False): # MODIFIED LINE
         self.chain.append(block)
-        return block
+
+        if skip_return is False:
+            return block
 
     # NEW METHOD ADDED
     def prepare_block(self, proof, previous_hash):
