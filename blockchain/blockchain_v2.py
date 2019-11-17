@@ -24,6 +24,7 @@ class Blockchain:
     # NEW METHOD ADDED
     def prepare_block(self, proof, previous_hash):
         block = {'index': len(self.chain) + 1,
+                 'hash': 0,
                  'timestamp': str(datetime.datetime.now()),
                  'proof': proof,
                  'previous_hash': previous_hash}
@@ -46,13 +47,14 @@ class Blockchain:
             previous_hash = '0' # NEW LINE
             new_block = self.prepare_block(proof = 1, previous_hash = previous_hash) # NEW LINE
         else: # usual block # NEW LINE
-            previous_hash = self.hash(self.chain[-1]) # NEW LINE
+            previous_hash = self.chain[-1]['hash'] # NEW LINE
             new_block = self.prepare_block(new_proof,previous_hash) # NEW LINE
 
         while check_proof is False:
             hash_operation = self.hash(new_block) # MODIFIED LINE
             if hash_operation[:4] == '0000':
                 check_proof = True
+                new_block.update({'hash':hash_operation}) # NEW LINE
             else:
                 new_proof += 1
                 new_block = self.set_proof(new_block,new_proof) # NEW LINE
@@ -64,12 +66,8 @@ class Blockchain:
         return hashlib.sha256(encoded_block).hexdigest()
 
     # NEW METHOD TO GET CHAIN WITH SINGLE BLOCK HASHES
-    def chain_with_block_hashes(self):
+    def get_chain(self):
         chain = blockchain.chain
-
-        for index, block in enumerate(chain):
-            block.update({'hash':self.hash(block)})
-
         return chain
 
     def is_chain_valid(self, chain):
@@ -118,14 +116,14 @@ def mine_block():
                 'timestamp': mined_block['timestamp'],
                 'proof': mined_block['proof'],
                 'previous_hash': mined_block['previous_hash'],
-                'hash': blockchain.hash(mined_block)} # NEW LINE
+                'hash': mined_block['hash']} # NEW LINE
     
     return jsonify(response), 200
 
 # Getting the full Blockchain
 @app.route('/get_chain', methods=['GET'])
 def get_chain():
-    response = {'chain': blockchain.chain_with_block_hashes(),
+    response = {'chain': blockchain.get_chain(),
                 'depth': len(blockchain.chain)}
 
     return jsonify(response), 200

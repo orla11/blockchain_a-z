@@ -29,6 +29,7 @@ class Blockchain:
 
     def prepare_block(self, proof, previous_hash):
         block = {'index': len(self.chain) + 1,
+                 'hash': 0,
                  'timestamp': str(datetime.datetime.now()),
                  'proof': proof,
                  'previous_hash': previous_hash,
@@ -54,7 +55,7 @@ class Blockchain:
             previous_hash = '0'
             new_block = self.prepare_block(proof = 1, previous_hash = previous_hash)
         else: # usual block
-            previous_hash = self.hash(self.chain[-1])
+            previous_hash = self.chain[-1]['hash']
             new_block = self.prepare_block(new_proof,previous_hash)
 
         while check_proof is False:
@@ -62,6 +63,7 @@ class Blockchain:
             hash_operation = self.hash(new_block)
             if hash_operation[:4] == '0000':
                 check_proof = True
+                new_block.update({'hash':hash_operation})
             else:
                 new_proof += 1
                 new_block = self.set_proof(new_block,new_proof)
@@ -72,12 +74,8 @@ class Blockchain:
         encoded_block = json.dumps(block, sort_keys=True).encode()
         return hashlib.sha256(encoded_block).hexdigest()
 
-    def chain_with_block_hashes(self):
+    def get_chain(self):
         chain = blockchain.chain
-
-        for index, block in enumerate(chain):
-            block.update({'hash':self.hash(block)})
-
         return chain
 
     def is_chain_valid(self, chain):
@@ -123,7 +121,7 @@ class Blockchain:
         for node in network:
             response = requests.get(f'http://{node}/get_chain')
 
-            if response.status_code is 200:
+            if response.status_code == 200:
                 length = response.json()['depth']
                 chain = response.json()['chain']
 
@@ -131,18 +129,18 @@ class Blockchain:
                     max_length = length
                     longest_chain = chain
 
-            if longest_chain:
-                self.chain = longest_chain
-                return True
-            else:
-                return False
+        if longest_chain:
+            self.chain = longest_chain
+            return True
+        else:
+            return False
                 
 # 2 - Mining the Blockchain
 
 # Initialize WebApp
 app = Flask(__name__)
 
-# Creating an address for the node on Port 5000
+# Creating an address for the node on Port 5001
 node_address = str(uuid4()).replace('-', '')
 
 # Creating Blockchain
@@ -153,7 +151,7 @@ blockchain = Blockchain()
 def mine_block():
     # Block fee/reward
     blockchain.add_transaction(sender = node_address,
-                               receiver = '0rla',
+                               receiver = 'Bill',
                                amount = 1)
 
     proof, new_block = blockchain.proof_of_work()
@@ -166,7 +164,7 @@ def mine_block():
                 'proof': mined_block['proof'],
                 'transactions': mined_block['transactions'],
                 'previous_hash': mined_block['previous_hash'],
-                'hash': blockchain.hash(mined_block)}
+                'hash': mined_block['hash']}
     
     return jsonify(response), 200
 
@@ -188,7 +186,7 @@ def add_transaction():
 # Getting the full Blockchain
 @app.route('/get_chain', methods=['GET'])
 def get_chain():
-    response = {'chain': blockchain.chain_with_block_hashes(),
+    response = {'chain': blockchain.get_chain(),
                 'depth': len(blockchain.chain)}
 
     return jsonify(response), 200
@@ -234,6 +232,6 @@ def replace_chain():
                     'actual_chain': blockchain.chain}
 
     return jsonify(response), 200
-
+    
 # Running the App
-app.run(host='0.0.0.0',port=5000)
+app.run(host='0.0.0.0',port=5001)
