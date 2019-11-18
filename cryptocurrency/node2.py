@@ -188,7 +188,7 @@ def mine_block():
 def add_transaction():
     json = request.get_json()
 
-    transaction_keys = ['sender','recevier','amount']
+    transaction_keys = ['sender','receiver','amount']
 
     if not all (key in json for key in transaction_keys):
         return 'Some elements of the transaction are missing', 400
