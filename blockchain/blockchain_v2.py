@@ -4,6 +4,7 @@
 import datetime
 import hashlib
 import json
+import pickle, bz2
 from flask import Flask, jsonify
 
 class Blockchain:
@@ -15,8 +16,11 @@ class Blockchain:
         _, genesis_block = self.proof_of_work() # NEW LINE
         self.add_block(genesis_block, skip_return=True) # MODIFIED LINE
 
+        self.backup_chain() # NEW LINE
+
     def add_block(self, block, skip_return=False): # MODIFIED LINE
         self.chain.append(block)
+        self.backup_chain() # NEW LINE
 
         if skip_return is False:
             return block
@@ -24,11 +28,20 @@ class Blockchain:
     # NEW METHOD ADDED
     def prepare_block(self, proof, previous_hash):
         block = {'index': len(self.chain) + 1,
-                 'hash': 0,
                  'timestamp': str(datetime.datetime.now()),
                  'proof': proof,
                  'previous_hash': previous_hash}
         return block
+
+    # NEW METHOD ADDED
+    def backup_chain(self):
+        sfile = bz2.BZ2File('chain_bk','w')
+        pickle.dump(self.chain, sfile)
+
+    # NEW METHOD ADDED
+    def load_chain(self):
+        sfile = bz2.BZ2File('chain_bk','rb')
+        return pickle.load(sfile)
 
     # NEW METHOD ADDED
     def set_proof(self, block, test_proof):
@@ -47,14 +60,13 @@ class Blockchain:
             previous_hash = '0' # NEW LINE
             new_block = self.prepare_block(proof = 1, previous_hash = previous_hash) # NEW LINE
         else: # usual block # NEW LINE
-            previous_hash = self.chain[-1]['hash'] # NEW LINE
+            previous_hash = self.hash(self.chain[-1]) # NEW LINE
             new_block = self.prepare_block(new_proof,previous_hash) # NEW LINE
 
         while check_proof is False:
             hash_operation = self.hash(new_block) # MODIFIED LINE
             if hash_operation[:4] == '0000':
                 check_proof = True
-                new_block.update({'hash':hash_operation}) # NEW LINE
             else:
                 new_proof += 1
                 new_block = self.set_proof(new_block,new_proof) # NEW LINE
@@ -67,8 +79,12 @@ class Blockchain:
 
     # NEW METHOD TO GET CHAIN WITH SINGLE BLOCK HASHES
     def get_chain(self):
-        chain = blockchain.chain
-        return chain
+        new_chain = self.load_chain()
+        for index,block in enumerate(new_chain):
+            hash_block = self.hash(block)
+            new_chain[index].update({'hash': hash_block})     
+
+        return new_chain
 
     def is_chain_valid(self, chain):
         previous_block = chain[0]
@@ -116,7 +132,7 @@ def mine_block():
                 'timestamp': mined_block['timestamp'],
                 'proof': mined_block['proof'],
                 'previous_hash': mined_block['previous_hash'],
-                'hash': mined_block['hash']} # NEW LINE
+                'hash': blockchain.hash(mined_block)} # NEW LINE
     
     return jsonify(response), 200
 
@@ -125,7 +141,6 @@ def mine_block():
 def get_chain():
     response = {'chain': blockchain.get_chain(),
                 'depth': len(blockchain.chain)}
-
     return jsonify(response), 200
 
 # Check if the Blockchain is valid

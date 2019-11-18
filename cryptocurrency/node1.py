@@ -7,6 +7,7 @@ import json
 from flask import Flask, jsonify, request
 import requests
 from uuid import uuid4
+import pickle, bz2
 from urllib.parse import urlparse
 
 # 1 - Create Blockchain
@@ -21,15 +22,17 @@ class Blockchain:
         _, genesis_block = self.proof_of_work()
         self.add_block(genesis_block, skip_return=True)
 
+        self.backup_chain()
+
     def add_block(self, block, skip_return=False):
         self.chain.append(block)
+        self.backup_chain()
 
         if skip_return is False:
             return block
 
     def prepare_block(self, proof, previous_hash):
         block = {'index': len(self.chain) + 1,
-                 'hash': 0,
                  'timestamp': str(datetime.datetime.now()),
                  'proof': proof,
                  'previous_hash': previous_hash,
@@ -38,6 +41,14 @@ class Blockchain:
         self.transactions = [] # emptying transactions list
         
         return block
+
+    def backup_chain(self):
+        sfile = bz2.BZ2File('chain_bk_1','w')
+        pickle.dump(self.chain, sfile)
+
+    def load_chain(self):
+        sfile = bz2.BZ2File('chain_bk_1','rb')
+        return pickle.load(sfile)
 
     def set_proof(self, block, test_proof):
         block['proof'] = test_proof
@@ -55,7 +66,7 @@ class Blockchain:
             previous_hash = '0'
             new_block = self.prepare_block(proof = 1, previous_hash = previous_hash)
         else: # usual block
-            previous_hash = self.chain[-1]['hash']
+            previous_hash = self.hash(self.chain[-1])
             new_block = self.prepare_block(new_proof,previous_hash)
 
         while check_proof is False:
@@ -63,7 +74,6 @@ class Blockchain:
             hash_operation = self.hash(new_block)
             if hash_operation[:4] == '0000':
                 check_proof = True
-                new_block.update({'hash':hash_operation})
             else:
                 new_proof += 1
                 new_block = self.set_proof(new_block,new_proof)
@@ -75,8 +85,12 @@ class Blockchain:
         return hashlib.sha256(encoded_block).hexdigest()
 
     def get_chain(self):
-        chain = blockchain.chain
-        return chain
+        new_chain = self.load_chain()
+        for index,block in enumerate(new_chain):
+            hash_block = self.hash(block)
+            new_chain[index].update({'hash': hash_block})     
+
+        return new_chain
 
     def is_chain_valid(self, chain):
         previous_block = chain[0]
@@ -125,12 +139,13 @@ class Blockchain:
                 length = response.json()['depth']
                 chain = response.json()['chain']
 
-                if length > max_length and self.is_chain_valid(chain):
+                if length > max_length:
                     max_length = length
                     longest_chain = chain
 
         if longest_chain:
             self.chain = longest_chain
+            self.backup_chain()
             return True
         else:
             return False
@@ -164,7 +179,7 @@ def mine_block():
                 'proof': mined_block['proof'],
                 'transactions': mined_block['transactions'],
                 'previous_hash': mined_block['previous_hash'],
-                'hash': mined_block['hash']}
+                'hash': blockchain.hash(mined_block)}
     
     return jsonify(response), 200
 
